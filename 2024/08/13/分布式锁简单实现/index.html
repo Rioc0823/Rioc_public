@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+	<meta name="description" content="">
+	<meta name="keywords" content="">
+	<title>分布式锁简单实现 - rioc</title>
+    <link rel="alternate" href="" type="application/atom+xml"/>
+	<link rel="shortcut icon" href=""/>
+	
+<link rel="stylesheet" href="/css/style.css">
+
+	
+<link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+	<div class="main-con">
+
+        <div class="nav cl">
+    <ul class="cl nav-list">
+        
+            <li>
+                
+                    <a href="/" class="">
+                        <i class="fa fa-home"></i> 
+                        <span>主页</span>
+                    </a>
+                
+            </li>
+        
+            <li>
+                
+                    <a href="/archives/" class="">
+                        <i class=" fa-"></i> 
+                        <span>归档</span>
+                    </a>
+                
+            </li>
+        
+            <li>
+                
+                    
+                    <a href="javascript:void(0)" class="">
+                    
+                        <i class=" fa-"></i> 
+                        <span>关于</span>
+                        <span class="drop-flag fa fa-angle-down"></span>
+                    </a>
+                    <dl>
+                        
+                            <li>
+                                <a href="/about" class="">
+                                    <i class=" fa-"></i>
+                                    <span>关于本站</span>
+                                </a>
+                            </li>
+                        
+                    </dl>
+                
+            </li>
+        
+    </ul>
+    <ul class="cl nav-tool">
+        
+            <li>
+                <a href="/github">
+                    <i class="fa fa-github"></i>
+                </a>
+            </li>
+        
+            <li>
+                <a href="/mail">
+                    <i class="fa fa-envelope"></i>
+                </a>
+            </li>
+        
+            <li>
+                <a href="/twitter">
+                    <i class="fa fa-twitter"></i>
+                </a>
+            </li>
+        
+        
+        <li>
+            <a href="javascript:void(0)" class="nav-search-btn">
+                <i class="fa fa-search"></i>
+            </a>
+        </li>
+        
+    </ul>
+    <form action="//google.com/search" method="get" accept-charset="UTF-8" class="nav-search"><input type="search" name="q" class="nav-search-input" placeholder="search..."><input type="hidden" name="sitesearch" value="http://example.com"></form>
+</div>
+
+        <header class="top" id="fallEle" style="background-image: url(/imgs/head.jpg)">
+    <i class="fa fa-bars" id="media-toggle" style="display: none"></i>
+    <div class="top-info cl fadeToBottom">
+        <h2 class="site-name"><a href="/">Rioc</a> <small id="type-data">欢迎来到小晨儿的博客</small></h2>
+    </div>
+</header>
+
+        <div class="con-wrap fadeToTop">
+    
+    <section class="article-area">
+    
+        <article class="article">
+    <div class="article-wrap">
+        
+            <h2 class="article-title cl">
+                分布式锁简单实现
+            </h2>
+        
+
+        <ul class="article-extra" style="margin-bottom: 20px">
+            
+            <li class="article-time">
+                2024-08-13
+            </li>
+            
+
+            
+                
+            
+
+
+        </ul>
+        <div class="article-description">
+            
+            <h1 id="分布式锁简单实现"><a href="#分布式锁简单实现" class="headerlink" title="分布式锁简单实现"></a>分布式锁简单实现</h1><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.tangyh.basic.cache.lock;
+
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.RedisCallback;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.RedisConnectionUtils;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.StringRedisTemplate;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Component;
+
+<span class="hljs-keyword">import</span> java.util.Objects;
+
+<span class="hljs-meta">@Component</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">RedisLock</span> &#123;
+    
+<span class="hljs-comment">/** * redis超时时间 */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-variable">LOCK_EXPIRE</span> <span class="hljs-operator">=</span> <span class="hljs-number">1000</span>*<span class="hljs-number">10</span>;<span class="hljs-comment">// ms</span>
+<span class="hljs-meta">@Autowiredprivate</span> StringRedisTemplate redisTemplate;
+
+<span class="hljs-comment">/**</span>
+<span class="hljs-comment"> * 分布式锁</span>
+<span class="hljs-comment"> *</span>
+<span class="hljs-comment"> * <span class="hljs-doctag">@param</span> key key值</span>
+<span class="hljs-comment"> * <span class="hljs-doctag">@return</span> 是否获取到</span>
+<span class="hljs-comment"> */</span>
+ <span class="hljs-keyword">public</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">lock</span><span class="hljs-params">(String key)</span> &#123;
+    <span class="hljs-type">String</span> <span class="hljs-variable">lock</span> <span class="hljs-operator">=</span> key;
+    <span class="hljs-keyword">try</span> &#123;
+        <span class="hljs-keyword">return</span> (Boolean) redisTemplate.execute((RedisCallback) connection -&gt; &#123;
+            <span class="hljs-type">long</span> <span class="hljs-variable">expireAt</span> <span class="hljs-operator">=</span> System.currentTimeMillis() + LOCK_EXPIRE;
+            <span class="hljs-type">Boolean</span> <span class="hljs-variable">acquire</span> <span class="hljs-operator">=</span> connection.setNX(lock.getBytes(), String.valueOf(expireAt).getBytes());
+            <span class="hljs-keyword">if</span> (acquire) &#123;
+                <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+            &#125; <span class="hljs-keyword">else</span> &#123;
+                <span class="hljs-comment">//判断该key上的值是否过期了</span>
+                <span class="hljs-type">byte</span>[] value = connection.get(lock.getBytes());
+                <span class="hljs-keyword">if</span> (Objects.nonNull(value) &amp;&amp; value.length &gt; <span class="hljs-number">0</span>) &#123;
+                    <span class="hljs-type">long</span> <span class="hljs-variable">expireTime</span> <span class="hljs-operator">=</span> Long.parseLong(<span class="hljs-keyword">new</span> <span class="hljs-title class_">String</span>(value));
+                    <span class="hljs-keyword">if</span> (expireTime &lt; System.currentTimeMillis()) &#123;
+                        <span class="hljs-comment">// 如果锁已经过期</span>
+                        <span class="hljs-type">byte</span>[] oldValue = connection.getSet(lock.getBytes(), String.valueOf(System.currentTimeMillis() + LOCK_EXPIRE).getBytes());
+                        <span class="hljs-comment">// 防止死锁</span>
+                        <span class="hljs-keyword">return</span> Long.parseLong(<span class="hljs-keyword">new</span> <span class="hljs-title class_">String</span>(oldValue)) &lt; System.currentTimeMillis();
+                    &#125;
+                &#125;
+            &#125;
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+        &#125;);
+    &#125; <span class="hljs-keyword">finally</span> &#123;
+        RedisConnectionUtils.unbindConnection(redisTemplate.getConnectionFactory());
+    &#125;
+ &#125;
+
+<span class="hljs-comment">/**</span>
+<span class="hljs-comment"> * 删除锁</span>
+<span class="hljs-comment"> *</span>
+<span class="hljs-comment"> * <span class="hljs-doctag">@param</span> key</span>
+<span class="hljs-comment"> */</span>
+ <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">delete</span><span class="hljs-params">(String key)</span> &#123;
+    <span class="hljs-keyword">try</span> &#123;
+        redisTemplate.delete(key);
+    &#125; <span class="hljs-keyword">finally</span> &#123;
+        RedisConnectionUtils.unbindConnection(redisTemplate.getConnectionFactory());
+    &#125;
+ &#125;
+&#125;</code></pre>
+
+<ol>
+<li>首先，定义了一个 <code>lock</code> 字符串，作为锁的键名。</li>
+<li>使用 <code>redisTemplate.execute</code> 方法执行 Redis 回调操作，在回调函数中进行分布式锁的获取逻辑。</li>
+<li>在回调函数内部，计算了锁的过期时间 <code>expireAt</code>，并通过 Redis 的 <code>setNX</code> 命令尝试设置键值对，如果设置成功（即获取到了锁），则返回 <code>true</code>。</li>
+<li>如果 <code>setNX</code> 返回 <code>false</code>，说明锁已经被其他客户端持有，则尝试检查该锁的过期时间是否已经过期。</li>
+<li>如果锁已经过期，则使用 <code>getSet</code> 命令更新锁的过期时间，并返回 <code>true</code>，表示成功获取到了锁。这里使用 <code>getSet</code> 命令是为了保证更新过期时间的原子性，防止出现竞态条件。</li>
+<li>如果锁未过期，则返回 <code>false</code>，表示未能成功获取到锁。</li>
+</ol>
+<p>在 <code>delete</code> 方法中，执行删除锁操作：</p>
+<ol>
+<li>使用 <code>redisTemplate.delete</code> 方法删除指定键名的锁。</li>
+<li>在 <code>finally</code> 块中，无论是否发生异常，都会执行 <code>RedisConnectionUtils.unbindConnection</code> 方法释放 Redis 连接。</li>
+</ol>
+<p>这样，无论是获取锁还是删除锁，在操作完成后都会正确释放 Redis 连接，避免了连接资源泄漏的问题。</p>
+
+        </div>
+        
+        
+        
+        <div class="article-tags">
+            <ul class="tags-list cl">
+                
+            </ul>
+        </div>
+        
+        <div class="article-pagination cl">
+        
+        
+            <div class="pagination-next">
+                <a href="/2024/08/13/MybatisPlus%E7%9A%84InnerInterceptor%E6%8E%A5%E5%8F%A3/">MybatisPlus的InnerInterceptor接口</a>
+            </div>
+        
+        </div>
+
+        
+    </div>
+</article>
+
+    </section>
+    
+<section class="tool-area">
+
+    <div class="toolbar">
+        
+
+        
+        <div class="widget-post widget" style="order: 1 ">
+            <h2 class="widget-title"><i class="fa fa-file-text"></i> Recent articles</h2>
+            <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2024/08/13/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%AE%80%E5%8D%95%E5%AE%9E%E7%8E%B0/">分布式锁简单实现</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/08/13/MybatisPlus%E7%9A%84InnerInterceptor%E6%8E%A5%E5%8F%A3/">MybatisPlus的InnerInterceptor接口</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/08/13/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90context-path%E5%8F%82%E6%95%B0%E7%9A%84%E4%BD%9C%E7%94%A8%E4%B8%8E%E5%BA%94%E7%94%A8/">深度解析context-path参数的作用与应用</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/07/27/hello-world/">欢迎来到小晨儿的博客哦~</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/07/27/%E8%B1%A1%E5%B1%B1/">象山</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/04/27/hello/">hello</a></li></ul>
+        </div>
+        
+
+        
+        <div class="widget-tags widget" style="order: 2 ">
+            <h2 class="widget-title"><i class="fa fa-tags"></i> Tag</h2>
+            
+        </div>
+        
+
+        
+        <div class="widget-categories widget" style="order: 3 ">
+            <h2 class="widget-title"><i class="fa fa-folder-open"></i> Categories</h2>
+            
+        </div>
+        
+
+    </div>
+</section>
+</div>
+
+    
+        <footer class="footer">
+	<p class="footer-intro">
+		
+		@2024 rioc.
+	</p>
+	<p class="footer-intro">
+			Powered By <a href="https://hexo.io/zh-cn/" target="_blank">hexo</a>
+			theme <a href="https://github.com/iengu/hexo-theme-mokusei" target="_blank">mokusei</a> by <a href="https://www.iengu.com" target="blank">iengu</a>
+	</p>
+</footer>
+
+
+
+
+        <div class="extend-tools" id="extend-tools" style="display: none;">
+    <ul>
+        <li class="tools-returnTop" title="Back to top"><i class="fa fa-angle-double-up"></i></li>
+    </ul>
+</div>
+
+	</div>
+
+	
+<script src="/js/org/jquery.min.js"></script>
+
+    
+<script src="/js/extend.js"></script>
+
+</body>
+</html>

@@ -116,6 +116,233 @@
     <div class="article-wrap">
         
             <h2 class="article-title cl">
+                <a href="/2024/08/13/分布式锁简单实现/" title="分布式锁简单实现">
+                    分布式锁简单实现
+                </a>
+            </h2>
+        
+
+        <ul class="article-extra" style="margin-bottom: 20px">
+            
+            <li class="article-time">
+                2024-08-13
+            </li>
+            
+
+            
+                
+            
+
+
+        </ul>
+        <div class="article-description">
+            
+            <h1 id="分布式锁简单实现"><a href="#分布式锁简单实现" class="headerlink" title="分布式锁简单实现"></a>分布式锁简单实现</h1><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.tangyh.basic.cache.lock;
+
+<span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.RedisCallback;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.RedisConnectionUtils;
+<span class="hljs-keyword">import</span> org.springframework.data.redis.core.StringRedisTemplate;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Component;
+
+<span class="hljs-keyword">import</span> java.util.Objects;
+
+<span class="hljs-meta">@Component</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">RedisLock</span> &#123;
+    
+<span class="hljs-comment">/** * redis超时时间 */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-variable">LOCK_EXPIRE</span> <span class="hljs-operator">=</span> <span class="hljs-number">1000</span>*<span class="hljs-number">10</span>;<span class="hljs-comment">// ms</span>
+<span class="hljs-meta">@Autowiredprivate</span> StringRedisTemplate redisTemplate;
+
+<span class="hljs-comment">/**</span>
+<span class="hljs-comment"> * 分布式锁</span>
+<span class="hljs-comment"> *</span>
+<span class="hljs-comment"> * <span class="hljs-doctag">@param</span> key key值</span>
+<span class="hljs-comment"> * <span class="hljs-doctag">@return</span> 是否获取到</span>
+<span class="hljs-comment"> */</span>
+ <span class="hljs-keyword">public</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">lock</span><span class="hljs-params">(String key)</span> &#123;
+    <span class="hljs-type">String</span> <span class="hljs-variable">lock</span> <span class="hljs-operator">=</span> key;
+    <span class="hljs-keyword">try</span> &#123;
+        <span class="hljs-keyword">return</span> (Boolean) redisTemplate.execute((RedisCallback) connection -&gt; &#123;
+            <span class="hljs-type">long</span> <span class="hljs-variable">expireAt</span> <span class="hljs-operator">=</span> System.currentTimeMillis() + LOCK_EXPIRE;
+            <span class="hljs-type">Boolean</span> <span class="hljs-variable">acquire</span> <span class="hljs-operator">=</span> connection.setNX(lock.getBytes(), String.valueOf(expireAt).getBytes());
+            <span class="hljs-keyword">if</span> (acquire) &#123;
+                <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+            &#125; <span class="hljs-keyword">else</span> &#123;
+                <span class="hljs-comment">//判断该key上的值是否过期了</span>
+                <span class="hljs-type">byte</span>[] value = connection.get(lock.getBytes());
+                <span class="hljs-keyword">if</span> (Objects.nonNull(value) &amp;&amp; value.length &gt; <span class="hljs-number">0</span>) &#123;
+                    <span class="hljs-type">long</span> <span class="hljs-variable">expireTime</span> <span class="hljs-operator">=</span> Long.parseLong(<span class="hljs-keyword">new</span> <span class="hljs-title class_">String</span>(value));
+                    <span class="hljs-keyword">if</span> (expireTime &lt; System.currentTimeMillis()) &#123;
+                        <span class="hljs-comment">// 如果锁已经过期</span>
+                        <span class="hljs-type">byte</span>[] oldValue = connection.getSet(lock.getBytes(), String.valueOf(System.currentTimeMillis() + LOCK_EXPIRE).getBytes());
+                        <span class="hljs-comment">// 防止死锁</span>
+                        <span class="hljs-keyword">return</span> Long.parseLong(<span class="hljs-keyword">new</span> <span class="hljs-title class_">String</span>(oldValue)) &lt; System.currentTimeMillis();
+                    &#125;
+                &#125;
+            &#125;
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+        &#125;);
+    &#125; <span class="hljs-keyword">finally</span> &#123;
+        RedisConnectionUtils.unbindConnection(redisTemplate.getConnectionFactory());
+    &#125;
+ &#125;
+
+<span class="hljs-comment">/**</span>
+<span class="hljs-comment"> * 删除锁</span>
+<span class="hljs-comment"> *</span>
+<span class="hljs-comment"> * <span class="hljs-doctag">@param</span> key</span>
+<span class="hljs-comment"> */</span>
+ <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">delete</span><span class="hljs-params">(String key)</span> &#123;
+    <span class="hljs-keyword">try</span> &#123;
+        redisTemplate.delete(key);
+    &#125; <span class="hljs-keyword">finally</span> &#123;
+        RedisConnectionUtils.unbindConnection(redisTemplate.getConnectionFactory());
+    &#125;
+ &#125;
+&#125;</code></pre>
+
+<ol>
+<li>首先，定义了一个 <code>lock</code> 字符串，作为锁的键名。</li>
+<li>使用 <code>redisTemplate.execute</code> 方法执行 Redis 回调操作，在回调函数中进行分布式锁的获取逻辑。</li>
+<li>在回调函数内部，计算了锁的过期时间 <code>expireAt</code>，并通过 Redis 的 <code>setNX</code> 命令尝试设置键值对，如果设置成功（即获取到了锁），则返回 <code>true</code>。</li>
+<li>如果 <code>setNX</code> 返回 <code>false</code>，说明锁已经被其他客户端持有，则尝试检查该锁的过期时间是否已经过期。</li>
+<li>如果锁已经过期，则使用 <code>getSet</code> 命令更新锁的过期时间，并返回 <code>true</code>，表示成功获取到了锁。这里使用 <code>getSet</code> 命令是为了保证更新过期时间的原子性，防止出现竞态条件。</li>
+<li>如果锁未过期，则返回 <code>false</code>，表示未能成功获取到锁。</li>
+</ol>
+<p>在 <code>delete</code> 方法中，执行删除锁操作：</p>
+<ol>
+<li>使用 <code>redisTemplate.delete</code> 方法删除指定键名的锁。</li>
+<li>在 <code>finally</code> 块中，无论是否发生异常，都会执行 <code>RedisConnectionUtils.unbindConnection</code> 方法释放 Redis 连接。</li>
+</ol>
+<p>这样，无论是获取锁还是删除锁，在操作完成后都会正确释放 Redis 连接，避免了连接资源泄漏的问题。</p>
+
+        </div>
+        
+            
+        
+        
+    </div>
+</article>
+
+        
+            
+            <article class="article">
+    <div class="article-wrap">
+        
+            <h2 class="article-title cl">
+                <a href="/2024/08/13/MybatisPlus的InnerInterceptor接口/" title="MybatisPlus的InnerInterceptor接口">
+                    MybatisPlus的InnerInterceptor接口
+                </a>
+            </h2>
+        
+
+        <ul class="article-extra" style="margin-bottom: 20px">
+            
+            <li class="article-time">
+                2024-08-13
+            </li>
+            
+
+            
+                
+            
+
+
+        </ul>
+        <div class="article-description">
+            
+            <h1 id="MybatisPlus的InnerInterceptor接口"><a href="#MybatisPlus的InnerInterceptor接口" class="headerlink" title="MybatisPlus的InnerInterceptor接口"></a>MybatisPlus的InnerInterceptor接口</h1><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">InnerInterceptor</span> &#123;
+    <span class="hljs-keyword">default</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">willDoQuery</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforeQuery</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">willDoUpdate</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforeUpdate</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforePrepare</span><span class="hljs-params">(StatementHandler sh, Connection connection, Integer transactionTimeout)</span> &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforeGetBoundSql</span><span class="hljs-params">(StatementHandler sh)</span> &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">setProperties</span><span class="hljs-params">(Properties properties)</span> &#123;
+    &#125;
+    
+    <span class="hljs-keyword">default</span> Executor <span class="hljs-title function_">pluginExecutor</span><span class="hljs-params">(Executor executor)</span> &#123;
+        <span class="hljs-keyword">return</span> executor;
+    &#125;
+&#125;
+</code></pre>
+
+<p><strong>willDoQuery:</strong> 当执行查询操作时调用，判断是否需要执行查询操作。默认返回true，表示继续执行查询操作，如果需要阻止查询操作，则可以在实现该方法时返回false。<br><strong>beforeQuery:</strong> 在执行查询操作之前调用。可以在查询之前进行一些必要的操作，例如设置数据范围、修改 SQL 等。<br><strong>willDoUpdate:</strong> 当执行更新操作时调用，判断是否需要执行更新操作。默认返回true，表示继续执行更新操作，如果需要阻止更新操作，则可以在实现该方法时返回false。<br><strong>beforeUpdate:</strong> 在执行更新操作之前调用。通过实现该方法，可以在更新之前进行一些必要的操作，例如设置更新时间、加密数据等。<br><strong>beforePrepare:</strong> 在执行 SQL 之前调用。可以在 SQL 执行之前进行一些必要的操作，例如设置事务隔离级别、设置查询超时时间等。<br><strong>beforeGetBoundSql:</strong> 在获取 BoundSql 对象之前调用。可以在获取 BoundSql 对象之前进行一些必要的操作，例如设置参数、修改 SQL 等。<br><strong>setProperties:</strong> 设置拦截器属性。该方法在创建拦截器实例时调用，用于设置拦截器的属性。<br><strong>pluginExecutor:</strong> 在创建 Executor 对象时调用，可以在这里对 Executor 对象进行包装或其他处理。</p>
+
+        </div>
+        
+            
+        
+        
+    </div>
+</article>
+
+        
+            
+            <article class="article">
+    <div class="article-wrap">
+        
+            <h2 class="article-title cl">
+                <a href="/2024/08/13/深度解析context-path参数的作用与应用/" title="深度解析context-path参数的作用与应用">
+                    深度解析context-path参数的作用与应用
+                </a>
+            </h2>
+        
+
+        <ul class="article-extra" style="margin-bottom: 20px">
+            
+            <li class="article-time">
+                2024-08-13
+            </li>
+            
+
+            
+                
+            
+
+
+        </ul>
+        <div class="article-description">
+            
+            <h1 id="深度解析context-path参数的作用与应用"><a href="#深度解析context-path参数的作用与应用" class="headerlink" title="深度解析context-path参数的作用与应用"></a>深度解析context-path参数的作用与应用</h1><h2 id="一、引言"><a href="#一、引言" class="headerlink" title="一、引言"></a>一、引言</h2><p>​        在 Web 开发中，context-path 参数是一个常见且重要的概念。它在实际应用中扮演着重要的角色，对于理解和设计 Web 应用程序具有深远的影响。本文将从深度和广度两个维度对context-path 参数进行全面评估，以帮助大家更好地理解和应用这一概念。</p>
+<h2 id="二、概念"><a href="#二、概念" class="headerlink" title="二、概念"></a>二、概念</h2><p>​        context-path 参数通常用于标识 Web 应用程序在 Web 服务器上的根路径。当一个 Web 应用程序被部署到 Web 服务器上时，它会被分配一个唯一的 context-path 参数，用于标识该应用程序在服务器上的位置。在实际应用中，context-path 参数通常是一个URL路径的一部分，用于定位和访问特定的 Web 应用程序。</p>
+<h2 id="三、作用"><a href="#三、作用" class="headerlink" title="三、作用"></a>三、作用</h2><h3 id="1-作为-Web-应用程序的唯一标识符"><a href="#1-作为-Web-应用程序的唯一标识符" class="headerlink" title="1.作为 Web 应用程序的唯一标识符"></a>1.作为 Web 应用程序的唯一标识符</h3><p>context-path 参数可以帮助 Web 服务器将不同的 Web 应用程序区分开来。通过在 URL中加入 context-path 参数，用户可以访问特定的 Web 应用程序，并且可以避免 URL 冲突的问题。</p>
+<h3 id="2-管理-Web-应用程序的资源"><a href="#2-管理-Web-应用程序的资源" class="headerlink" title="2.管理 Web 应用程序的资源"></a>2.管理 Web 应用程序的资源</h3><p>通过 context-path 参数，Web 应用程序可以统一管理自身的资源。可以通过 context-path 参数来访问 Web 应用程序的静态文件、配置文件以及其他资源，从而实现统一的资源管理和访问。</p>
+<h3 id="3-支持多个-Web-应用程序的部署"><a href="#3-支持多个-Web-应用程序的部署" class="headerlink" title="3.支持多个 Web 应用程序的部署"></a>3.支持多个 Web 应用程序的部署</h3><p>在一个 Web 服务器中，可能会部署多个 Web 应用程序。通过使用不同的 context-path 参数，可以实现多个 Web 应用程序之间的隔离和独立运行，从而提高了 Web 服务器的灵活性和可维护性。</p>
+<h2 id="四、应用场景"><a href="#四、应用场景" class="headerlink" title="四、应用场景"></a>四、应用场景</h2><h3 id="1-在-Spring-MVC-框架中的应用"><a href="#1-在-Spring-MVC-框架中的应用" class="headerlink" title="1.在 Spring MVC 框架中的应用"></a>1.在 Spring MVC 框架中的应用</h3><p>在 Spring MVC 框架中，context-path 参数经常被用于标识和访问不同的控制器和请求处理器。通过配置不同的 context-path 参数，可以实现不同的功能模块和业务逻辑之间的分离和管理。</p>
+<h3 id="2-在-Java-Web-应用程序中的应用"><a href="#2-在-Java-Web-应用程序中的应用" class="headerlink" title="2.在 Java Web 应用程序中的应用"></a>2.在 Java Web 应用程序中的应用</h3><p>​          在Java Web 应用程序中，context-path 参数通常被用于配置和管理 Web 应用程序的路由、过滤器和拦截器。通过合理地使用context-path 参数，可以实现 Web 应用程序的灵活定位和访问控制。</p>
+<h3 id="3-在前端开发中的应用"><a href="#3-在前端开发中的应用" class="headerlink" title="3.在前端开发中的应用"></a>3.在前端开发中的应用</h3><p>​        在前端开发中，context-path 参数可以被用于管理和访问 Web应用程序的静态资源，如JavaScript、CSS、图片等。通过使用context-path 参数，可以实现前端资源的统一管理和访问。</p>
+<h2 id="五、总结"><a href="#五、总结" class="headerlink" title="五、总结"></a>五、总结</h2><p>​        整体来看，context-path 参数在 Web 开发中扮演着十分关键的角色，它不仅可以帮助 Web 服务器管理和定位 Web 应用程序，还可以支持多个 Web 应用程序的部署和运行。在实际应用中，合理地使用context-path 参数可以提高 Web 应用程序的灵活性和可维护性，从而更好地满足用户需求。<br>​       context-path 参数作为一个重要的 Web 开发概念，对于开发人员来说是必须深入理解和应用的。希望通过本文的介绍和解析，大家能够对 context-path 参数有一个更深入和全面的理解，从而更好地应用于实际项目中。</p>
+
+        </div>
+        
+            
+        
+        
+    </div>
+</article>
+
+        
+            
+            <article class="article">
+    <div class="article-wrap">
+        
+            <h2 class="article-title cl">
                 <a href="/2024/07/27/hello-world/" title="欢迎来到小晨儿的博客哦~">
                     欢迎来到小晨儿的博客哦~
                 </a>
@@ -230,7 +457,7 @@ http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/Java%E5%90%88%E7%85%A7.JP
         </ul>
         <div class="article-description">
             
-            <h2 id="赵若晨"><a href="#赵若晨" class="headerlink" title="赵若晨"></a>赵若晨</h2><p>hello！</p>
+            <p>hello！<br>这是一个开始~</p>
 
         </div>
         
@@ -254,7 +481,7 @@ http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/Java%E5%90%88%E7%85%A7.JP
         
         <div class="widget-post widget" style="order: 1 ">
             <h2 class="widget-title"><i class="fa fa-file-text"></i> Recent articles</h2>
-            <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2024/07/27/hello-world/">欢迎来到小晨儿的博客哦~</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/07/27/%E8%B1%A1%E5%B1%B1/">象山</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/04/27/hello/">hello</a></li></ul>
+            <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2024/08/13/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%AE%80%E5%8D%95%E5%AE%9E%E7%8E%B0/">分布式锁简单实现</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/08/13/MybatisPlus%E7%9A%84InnerInterceptor%E6%8E%A5%E5%8F%A3/">MybatisPlus的InnerInterceptor接口</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/08/13/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90context-path%E5%8F%82%E6%95%B0%E7%9A%84%E4%BD%9C%E7%94%A8%E4%B8%8E%E5%BA%94%E7%94%A8/">深度解析context-path参数的作用与应用</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/07/27/hello-world/">欢迎来到小晨儿的博客哦~</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/07/27/%E8%B1%A1%E5%B1%B1/">象山</a></li><li class="post-list-item"><a class="post-list-link" href="/2024/04/27/hello/">hello</a></li></ul>
         </div>
         
 

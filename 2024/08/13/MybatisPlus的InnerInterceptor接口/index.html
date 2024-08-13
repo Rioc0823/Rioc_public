@@ -5,7 +5,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 	<meta name="description" content="">
 	<meta name="keywords" content="">
-	<title>Archive - rioc</title>
+	<title>MybatisPlus的InnerInterceptor接口 - rioc</title>
     <link rel="alternate" href="" type="application/atom+xml"/>
 	<link rel="shortcut icon" href=""/>
 	
@@ -33,7 +33,7 @@
         
             <li>
                 
-                    <a href="/archives/" class="active">
+                    <a href="/archives/" class="">
                         <i class=" fa-"></i> 
                         <span>归档</span>
                     </a>
@@ -101,31 +101,22 @@
     </div>
 </header>
 
-        
-<div class="con-wrap fadeToTop archive">
+        <div class="con-wrap fadeToTop">
     
     <section class="article-area">
     
-        
-        
-            
-                <div class="archive-year"><span class="year-block">2024</span></div>
-
-            
-            <article class="article">
+        <article class="article">
     <div class="article-wrap">
         
             <h2 class="article-title cl">
-                <a href="/2024/07/27/hello-world/" title="欢迎来到小晨儿的博客哦~">
-                    欢迎来到小晨儿的博客哦~
-                </a>
+                MybatisPlus的InnerInterceptor接口
             </h2>
         
 
         <ul class="article-extra" style="margin-bottom: 20px">
             
             <li class="article-time">
-                2024-07-27
+                2024-08-13
             </li>
             
 
@@ -137,76 +128,65 @@
         </ul>
         <div class="article-description">
             
-            <p>这里会记录一些生活照片以及技术分享，欢迎大家交流访问。</p>
+            <h1 id="MybatisPlus的InnerInterceptor接口"><a href="#MybatisPlus的InnerInterceptor接口" class="headerlink" title="MybatisPlus的InnerInterceptor接口"></a>MybatisPlus的InnerInterceptor接口</h1><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">InnerInterceptor</span> &#123;
+    <span class="hljs-keyword">default</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">willDoQuery</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforeQuery</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">willDoUpdate</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforeUpdate</span><span class="hljs-params">(Executor executor, MappedStatement ms, Object parameter)</span> <span class="hljs-keyword">throws</span> SQLException &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforePrepare</span><span class="hljs-params">(StatementHandler sh, Connection connection, Integer transactionTimeout)</span> &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">beforeGetBoundSql</span><span class="hljs-params">(StatementHandler sh)</span> &#123;
+    &#125;
+
+    <span class="hljs-keyword">default</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">setProperties</span><span class="hljs-params">(Properties properties)</span> &#123;
+    &#125;
+    
+    <span class="hljs-keyword">default</span> Executor <span class="hljs-title function_">pluginExecutor</span><span class="hljs-params">(Executor executor)</span> &#123;
+        <span class="hljs-keyword">return</span> executor;
+    &#125;
+&#125;
+</code></pre>
+
+<p><strong>willDoQuery:</strong> 当执行查询操作时调用，判断是否需要执行查询操作。默认返回true，表示继续执行查询操作，如果需要阻止查询操作，则可以在实现该方法时返回false。<br><strong>beforeQuery:</strong> 在执行查询操作之前调用。可以在查询之前进行一些必要的操作，例如设置数据范围、修改 SQL 等。<br><strong>willDoUpdate:</strong> 当执行更新操作时调用，判断是否需要执行更新操作。默认返回true，表示继续执行更新操作，如果需要阻止更新操作，则可以在实现该方法时返回false。<br><strong>beforeUpdate:</strong> 在执行更新操作之前调用。通过实现该方法，可以在更新之前进行一些必要的操作，例如设置更新时间、加密数据等。<br><strong>beforePrepare:</strong> 在执行 SQL 之前调用。可以在 SQL 执行之前进行一些必要的操作，例如设置事务隔离级别、设置查询超时时间等。<br><strong>beforeGetBoundSql:</strong> 在获取 BoundSql 对象之前调用。可以在获取 BoundSql 对象之前进行一些必要的操作，例如设置参数、修改 SQL 等。<br><strong>setProperties:</strong> 设置拦截器属性。该方法在创建拦截器实例时调用，用于设置拦截器的属性。<br><strong>pluginExecutor:</strong> 在创建 Executor 对象时调用，可以在这里对 Executor 对象进行包装或其他处理。</p>
 
         </div>
         
-            
         
         
-    </div>
-</article>
-
-        
-            
-            <article class="article">
-    <div class="article-wrap">
-        
-            <h2 class="article-title cl">
-                <a href="/2024/07/27/象山/" title="象山">
-                    象山
-                </a>
-            </h2>
-        
-
-        <ul class="article-extra" style="margin-bottom: 20px">
-            
-            <li class="article-time">
-                2024-07-27
-            </li>
-            
-
-            
+        <div class="article-tags">
+            <ul class="tags-list cl">
                 
-            
-
-
-        </ul>
-        <div class="article-description">
-            
-            <p><img src="
-http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/Java%E5%90%88%E7%85%A7.JPG?e=1722176531&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:uipIe06M2QqfgI-JkGOnSa7OXw4=;" alt="meinv" style="zoom:50%;" /></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/Java%E5%90%88%E7%85%A72.JPG?e=1722176614&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:jzCzikX-w_jZV3zjzmElh2l2vWE="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E4%BA%9A%E5%B8%86%E4%B8%AD%E5%BF%83.JPG?e=1722177906&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:415dHBtrfRjZpUj6xXEajbTMnyA="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E5%A4%A7%E5%90%88%E7%85%A7.JPG?e=1722176816&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:GyOLQMpedVIobFhbOKdXEdDXums="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E5%A4%A7%E5%90%88%E7%85%A72.JPG?e=1722176846&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:HamNqBrFSs81TMZU2NO7eFxIToM="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E6%9D%BE%E5%85%B0%E5%B1%B1%E5%BA%A6%E5%81%87%E5%8C%BA.JPG?e=1722176861&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:zkPo03s8lMEnqQ1N9j5clJ03YAg="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%97%A5%E5%87%BA1.JPG?e=1722176880&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:axMlU-VSAP8NW8jWUm7VHBdHXIo="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%97%A5%E5%87%BA2.JPG?e=1722176903&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:jQUPQ9P8fb8fgb_2ZQDjp8bj9Mc="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%B2%99%E6%BB%A91.JPG?e=1722176919&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:nPD5oKTh2yoEcMyGG9MjrRwwzFg="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%B2%99%E6%BB%A92.JPG?e=1722176943&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:nl03kVkmKPk2mnEzhd34cLPlrtA="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%B2%99%E6%BB%A93.JPG?e=1722176961&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:mqj1HoQ5moRLzTvzi0uHMMyrCdY="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%B2%99%E6%BB%A94.JPG?e=1722176978&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:L9mo1kXTCHRNQSLKEvYGiDVLqO0="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%B5%B7%E8%BE%B91.JPG?e=1722177000&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:b7GjHy0SdxQvNLjRtZ8qYClVOxQ="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%B5%B7%E8%BE%B92.JPG?e=1722177017&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:aLi3AsRqn07CvjJTzoaH2oPBAng="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E7%9F%B3%E6%B5%A6%E6%B5%B7%E8%BE%B93.JPG?e=1722177034&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:Q_DCvV5QYD1yzGSl60cWFDwUAn8="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E9%95%BF%E6%B2%99%E6%9D%91%E9%A3%8E%E8%BD%A6.JPG?e=1722177051&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:o2aHBEl43lbarpBvn9g8n0ohixk="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E9%A5%AD%E6%A1%B6%E5%B1%B11.JPG?e=1722177066&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:Styuu_gZH9wCtilPXJ50zojnNyk="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E9%A5%AD%E6%A1%B6%E5%B1%B12.JPG?e=1722177081&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:_EdbyD1-22sXAFlK2HfTgb9jjL0="></p>
-<p><img src="http://sh9mm4xaa.hd-bkt.clouddn.com/%E8%B1%A1%E5%B1%B1/%E9%A5%AD%E6%A1%B6%E5%B1%B13.JPG?e=1722177096&token=luPjBFoJDQzkbjPomEo_SdCgaK8yBwk4nbnD5GMD:31muz6i8jRe9dUXQFbFmayiineM="></p>
-
+            </ul>
         </div>
         
-            
+        <div class="article-pagination cl">
         
+            <div class="pagination-prev">
+                <a href="/2024/08/13/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%AE%80%E5%8D%95%E5%AE%9E%E7%8E%B0/">分布式锁简单实现</a>
+            </div>
+        
+        
+            <div class="pagination-next">
+                <a href="/2024/08/13/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90context-path%E5%8F%82%E6%95%B0%E7%9A%84%E4%BD%9C%E7%94%A8%E4%B8%8E%E5%BA%94%E7%94%A8/">深度解析context-path参数的作用与应用</a>
+            </div>
+        
+        </div>
+
         
     </div>
 </article>
 
-        
-        <ul class="pagination clear">
-    <span class="page-number current">1</span>
-</ul>
     </section>
     
 <section class="tool-area">
